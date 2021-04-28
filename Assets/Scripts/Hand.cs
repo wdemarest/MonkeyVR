@@ -13,6 +13,7 @@ public class Hand : MonoBehaviour
     //PUBLIC
     public GameObject OtherHand;
     public GameObject Head;
+    public Head HeadScript;
     public int handNum;
     public bool grabOverridden = false;
     public bool flight;
@@ -20,17 +21,22 @@ public class Hand : MonoBehaviour
     public Transform PlayerT;
     public Material defaultMat;
     public Material grabbedMat;
+    public GameObject Gun;
     public TMP_Text LogText;
+    public GameObject Projectile;
 
     Vector3 lastPosition;
     Vector3 lastPlayerPosition;
     //float gripAxis = 0;
     float triggerAxis = 0;
-    
+    float gripAxis = 0;
+
     float moveSpeed = 20f;
     int velHistLength = 15;
     float swingMaxSpeed = 0.4f;
-    //float vibOnGrabDur = 0.25f;
+    float thrusterSpeed = 1.5f;
+    float vibDurationRemaining = 0f;
+    const float vibOneFrame = 0.01f;
 
     int touchingBranches = 0;
     bool grabbed = false;
@@ -38,7 +44,7 @@ public class Hand : MonoBehaviour
     bool jumpSaving = false;
     bool lastTriggerDown = false;
     bool alreadyCol = false;
-    //float vibRemaining = 0;
+    bool gunMode = false;
 
     Vector3[] velHist;
 
@@ -49,15 +55,18 @@ public class Hand : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        HeadScript = Head.GetComponent<Head>();
         velHist = new Vector3[velHistLength];
         devices = new List<InputDevice>();
         InputDevices.GetDevices(devices);
         PlayerRB.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
     }
 
-    void VibrationTest()
+    public void Vibrate(float strength, float duration)
     {
-        OVRInput.SetControllerVibration(0.6f, 0.6f, OVRInput.Controller.RTouch);
+        OVRInput.SetControllerVibration(1f, strength, (handNum == 1 ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch));
+        vibDurationRemaining = duration;
+
     }
 
     // Update is called once per frame
@@ -65,7 +74,8 @@ public class Hand : MonoBehaviour
     {
         alreadyCol = false;
 
-
+        
+        
         if (devices.Count <= 0)
         {
             LogText.text = "NODEVS"; 
@@ -75,34 +85,43 @@ public class Hand : MonoBehaviour
 
         //targetDevice.TryGetFeatureValue(CommonUsages.grip, out float gripAxis);
         targetDevice.TryGetFeatureValue(CommonUsages.trigger, out triggerAxis);
+        targetDevice.TryGetFeatureValue(CommonUsages.grip, out gripAxis);
         targetDevice.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 myPos);
         targetDevice.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion myRot);
         targetDevice.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool restartButton);
         targetDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out bool secondaryButton);
-
-        //OVRInput.SetControllerVibration(1, 1, handNum == 0 ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch);
+        targetDevice.TryGetFeatureValue(CommonUsages.primaryButton, out bool primaryButton);
 
         if (restartButton)
         {
-            Head.GetComponent<Head>().Reset();
+            HeadScript.Reset();
         }
 
         if (handNum == 1) {
-            Head.GetComponent<Head>().levitation = secondaryButton;
-            if (secondaryButton)
-            {
-                VibrationTest();
-            }
+            HeadScript.levitation = secondaryButton;
         }
 
         if (handNum == 2)
         {
             if (secondaryButton && !jumpSaving)
             {
-                Head.GetComponent<Head>().JumpSave();
-                GameObject.Find("ScoreTracker").GetComponent<ScoreTracker>().score--;
+                HeadScript.JumpSave();
             }
             jumpSaving = secondaryButton;
+        }
+
+        if (primaryButton)
+        {
+            if (!HeadScript.thrustRanOut)
+            {
+                Vector3 impulseDirection = transform.rotation * Vector3.forward;
+
+                HeadScript.Impulse(impulseDirection * thrusterSpeed * Time.deltaTime);
+
+                Vibrate(0.1f, vibOneFrame);
+            }
+
+            HeadScript.usingThrust = true;
         }
 
         if (flight)
@@ -121,15 +140,29 @@ public class Hand : MonoBehaviour
             PlayerT.position += grabMove;
         }
 
-        //if (TriggerDown() && !lastTriggerDown)
-        //{
-            interior = CheckInterior();
-        //}
         
+        interior = CheckInterior();
+
+        gunMode = GripDown();
+        Gun.SetActive(gunMode);
+        GetComponent<Renderer>().enabled = !gunMode;
+
+        if (TriggerDown() && !lastTriggerDown && gunMode)
+        {
+            Instantiate(Projectile, transform.position, transform.rotation);
+            FindObjectOfType<AudioManager>().Play("Shoot");
+            Vibrate(0.25f, 0.1f);
+        }
+
         //GRABBING
-        if (TriggerDown() && (touchingBranches > 0 || interior) && !grabOverridden)
+        if (TriggerDown() && !gunMode && (touchingBranches > 0 || interior) && !grabOverridden)
         {
             if (!grabbed) {
+
+                LogText.text = ""+PlayerRB.velocity.magnitude;
+
+
+                Vibrate(PlayerRB.velocity.magnitude/20, 0.05f);
 
                 GetComponent<Renderer>().material = grabbedMat;
 
@@ -145,9 +178,6 @@ public class Hand : MonoBehaviour
 
 
             grabbed = true;
-
-
-            Head.GetComponent<Head>().lastStablePos = PlayerT.position;
 
             PlayerRB.constraints |= RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezePositionZ;
         }
@@ -171,10 +201,8 @@ public class Hand : MonoBehaviour
 
         if (TriggerDown())
         {
-            Head.GetComponent<Head>().gravGrace = false;
+            HeadScript.gravGrace = false;
         }
-
-        LogText.text = ""+Head.GetComponent<Head>().gravGrace;
 
         //if (!(TriggerDown() && (touchingBranches > 0 || interior)))
         if(!TriggerDown())
@@ -191,6 +219,17 @@ public class Hand : MonoBehaviour
             }
         }*/
 
+        if (vibDurationRemaining <= 0f)
+        {
+            OVRInput.SetControllerVibration(0, 0, (handNum == 1 ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch));
+            vibDurationRemaining = 0f;
+        }
+
+        if (vibDurationRemaining > 0f)
+        {
+            vibDurationRemaining -= Time.deltaTime;
+        }
+
         lastPosition = transform.position;
         lastPlayerPosition = PlayerT.position;
         lastTriggerDown = TriggerDown();
@@ -206,7 +245,12 @@ public class Hand : MonoBehaviour
     {
         return triggerAxis > 0.75;
     }
-    
+
+    bool GripDown()
+    {
+        return gripAxis > 0.75;
+    }
+
     bool CheckInterior()
     {
         Vector3 castDirection = GetComponent<Transform>().position - Head.GetComponent<Transform>().position;
@@ -237,6 +281,14 @@ public class Hand : MonoBehaviour
         return AvgVel;
     }
 
+    void setLastStable(GameObject terrain)
+    {
+        if (terrain.layer == LayerMask.NameToLayer("GrabbableTerrain") && terrain.tag != "NoJumpSave" && grabbed && PlayerT.position.y > HeadScript.abyssY+10)
+        {
+            HeadScript.lastStablePos = PlayerT.position;
+        }
+    }
+
     void FixedUpdate()
     {
         if (grabbed)
@@ -260,7 +312,8 @@ public class Hand : MonoBehaviour
         
     void OnCollisionEnter(Collision collision)
     {
-        if(collision.collider.gameObject.layer == LayerMask.NameToLayer("GrabbableTerrain"))
+        setLastStable(collision.collider.gameObject);
+        if (collision.collider.gameObject.layer == LayerMask.NameToLayer("GrabbableTerrain"))
         {
             if(TriggerDown() && !alreadyCol)
             {
@@ -271,15 +324,49 @@ public class Hand : MonoBehaviour
                 //PlayerRB.constraints = RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
                 //PlayerRB.velocity = new Vector3(0, 0, 0);
             }
+            if(touchingBranches == 0 && !interior)
+            {
+                Vibrate(0.01f, vibOneFrame);
+            }
             touchingBranches += 1;
+        }
+
+        if (collision.collider.gameObject.tag == "Vase")
+        {
+            HeadScript.Deposit();
+        }
+
+        Item item = collision.collider.gameObject.GetComponent<Item>();
+        if (item != null)
+        {
+            if (HeadScript.heldScore >= 30) { return; }
+            HeadScript.GetPoint(item.points);
+            Debug.Log("item");
+            item.OnHandCollide();
+            Vibrate(item.vibDur, 0.5f);
+            
         }
     }
 
     void OnCollisionExit(Collision collision)
     {
+        setLastStable(collision.collider.gameObject);
         if (collision.collider.gameObject.layer == LayerMask.NameToLayer("GrabbableTerrain"))
         {
             touchingBranches -= 1;
+        }
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        setLastStable(collision.collider.gameObject);
+    }
+
+    void OnTriggerStay(Collider collider)
+    {
+        if (collider.gameObject.GetComponent<Updraft>())
+        {
+            HeadScript.updrafting = true;
         }
     }
 }

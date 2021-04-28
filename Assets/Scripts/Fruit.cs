@@ -2,17 +2,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Fruit : MonoBehaviour
+public class Fruit : Item
 {
     public bool positioning = true;
+    public GameObject CollectionParticles;
 
     float placeWidth = 150;
     float placeTop = 175;
-    float placeBottom = 40;
+    float placeBottom = 50;
+
 
     // Start is called before the first frame update
     void Start()
     {
+        points = 5;
         Debug.Log("FruitInstantiated");
         GetComponent<LODGroup>().ForceLOD(3);
         transform.localScale = new Vector3(10, 10, 10);
@@ -36,6 +39,17 @@ public class Fruit : MonoBehaviour
         return new Vector3(Random.Range(-1 * placeWidth, placeWidth), Random.Range(placeTop, placeBottom), Random.Range(-1 * placeWidth, placeWidth));
     }
 
+    public override void OnHandCollide()
+    {
+        Debug.Log("handcol");
+
+        //handCollided.GetComponent<Hand>.;
+        FindObjectOfType<AudioManager>().Play("FruitPickup");
+        Instantiate(CollectionParticles, transform.position, Quaternion.Euler(0, 0, 0));
+        Debug.Log("touch");
+        Destroy(gameObject);
+    }
+
     void OnCollisionStay(Collision collision)
     {
         if (collision.collider.gameObject.layer != LayerMask.NameToLayer("Player"))
@@ -49,15 +63,5 @@ public class Fruit : MonoBehaviour
                 Debug.Log("Landed");
             }
         }
-    }
-
-    void OnCollisionEnter(Collision collision)
-    {
-
-        if (collision.collider.gameObject.layer == LayerMask.NameToLayer("Player") && GameObject.Find("ScoreTracker").GetComponent<ScoreTracker>().score < 30) {
-            GameObject.Find("ScoreTracker").GetComponent<ScoreTracker>().GetPoint();
-            Destroy(gameObject);
-        }
-        
     }
 }
