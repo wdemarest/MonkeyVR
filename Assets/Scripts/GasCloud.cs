@@ -37,6 +37,7 @@ public class GasCloud : MonoBehaviour
                 damageTimer -= damageInterval;
             }
             damageTimer += Time.deltaTime;
+            Head.GetComponent<Head>().inCloud = true;
         }
         else
         {

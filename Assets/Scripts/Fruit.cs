@@ -15,7 +15,7 @@ public class Fruit : Item
     // Start is called before the first frame update
     void Start()
     {
-        points = 5;
+        points = 1;
         Debug.Log("FruitInstantiated");
         GetComponent<LODGroup>().ForceLOD(3);
         transform.localScale = new Vector3(10, 10, 10);

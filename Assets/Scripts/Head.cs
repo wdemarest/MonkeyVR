@@ -15,6 +15,7 @@ public class Head : MonoBehaviour
     public float thrustMax;
     public bool thrustRanOut = false;
     public bool usingThrust;
+    public bool inCloud = false;
     public float abyssY = 40f;
     public float updraftSpeed = 3f;
     public float health;
@@ -82,6 +83,16 @@ public class Head : MonoBehaviour
             }
         }
         usingThrust = false;
+
+        if (inCloud)
+        {
+            RenderSettings.fogColor = Color.red;
+            inCloud = false;
+        }
+        else
+        {
+            RenderSettings.fogColor = new Color(0.5f, 0.5f, 0.5f, 1);
+        }
     }
 
     public void GetPoint(int points)

@@ -6,6 +6,7 @@ public class Chaser : MonoBehaviour
 {
     public GameObject Target;
     public GameObject Fins;
+    public GameObject Light;
     public GameObject Explosion;
     public float minSpeed = 2.5f;
     public float maxSpeed = 3.5f;
@@ -27,6 +28,7 @@ public class Chaser : MonoBehaviour
     void Update()
     {
         Fins.SetActive(activated);
+        Light.SetActive(activated);
 
         Vector3 deltaToTarget = Target.GetComponent<Transform>().position - transform.position;
 
