@@ -20,8 +20,14 @@ public class Head : MonoBehaviour
     public float updraftSpeed = 3f;
     public float health;
     public int heldScore = 0;
-    float heatlhMax = 100;
+    public float healthMax = 50;
     public TMP_Text Health;
+    public float moveMaxSpeed = 8.5f;
+
+    public AudioSource takeDamageSound;
+    public AudioSource headBonk;
+    public AudioSource velWind;
+    float velWindVol;
 
     SphereCollider SC;
 
@@ -35,11 +41,13 @@ public class Head : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (PlayerRB.velocity.magnitude > 13) { PlayerRB.velocity *= 13 / PlayerRB.velocity.magnitude; }
+
         PlayerRB.useGravity = !(gravGrace || levitation);
 
         if(transform.position.y < abyssY)
         {
-            health -= 15;
+            takeDamage(15);
             JumpSave();
         }
 
@@ -53,6 +61,7 @@ public class Head : MonoBehaviour
 
         if(health <= 0)
         {
+            Debug.Log("DeathReset");
             Reset();
         }
 
@@ -82,8 +91,18 @@ public class Head : MonoBehaviour
                 thrustRemaining = thrustMax;
             }
         }
+
         usingThrust = false;
 
+        
+
+        //FogLightness
+        float fogLightness = (GetComponent<Transform>().position.y - 60) * (160f / 500f);
+        fogLightness += 60;
+        fogLightness /= 220;
+
+        Color fogColor = new Color(fogLightness, fogLightness, fogLightness, 1);
+        RenderSettings.fogColor = fogColor;
         if (inCloud)
         {
             RenderSettings.fogColor = Color.red;
@@ -91,8 +110,16 @@ public class Head : MonoBehaviour
         }
         else
         {
-            RenderSettings.fogColor = new Color(0.5f, 0.5f, 0.5f, 1);
+            //RenderSettings.fogColor = new Color(0.5f, 0.5f, 0.5f, 1);
         }
+
+
+        float volMin = 0.1f;
+        float volMax = 0.30f;
+        velWindVol = volMin + (volMax-volMin) * ((PlayerRB.velocity.magnitude / moveMaxSpeed));
+
+        velWind.volume = velWindVol;
+        velWind.pitch = 1 + (velWindVol / 2);
     }
 
     public void GetPoint(int points)
@@ -103,15 +130,16 @@ public class Head : MonoBehaviour
     public void takeDamage(float damageTaken)
     {
         health -= damageTaken;
-        FindObjectOfType<AudioManager>().Play("TakeDamage");
+        takeDamageSound.Play();
     }
     
     public void Reset()
     {
-        health = heatlhMax;
-        heldScore = 0;
+        Debug.Log("Reset");
         lastStablePos = new Vector3(0, 125, -3);
         JumpSave();
+        health = healthMax;
+        heldScore = 0;
     }
 
     public void Impulse(Vector3 impulse)
@@ -123,7 +151,7 @@ public class Head : MonoBehaviour
     {
         GameObject.Find("GameProgress").GetComponent<GameProgress>().Deposit(heldScore);
         heldScore = 0;
-        health = heatlhMax;
+        health = healthMax;
     }
 
     public void JumpSave()
@@ -131,5 +159,15 @@ public class Head : MonoBehaviour
         PlayerRB.velocity = new Vector3(0, 0, 0);
         PlayerRB.position = lastStablePos;
         gravGrace = true;
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        Debug.Log("headbonk");
+        if (collision.collider.gameObject.layer == LayerMask.NameToLayer("GrabbableTerrain"))
+        {
+            headBonk.Play();
+            
+        }
     }
 }

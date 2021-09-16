@@ -2,8 +2,8 @@
 
 public class PistolBulletBody : MonoBehaviour
 {
-    void OnCollisionEnter(Collision collision)
+    /*void OnCollisionEnter(Collision collision)
     {
         GetComponent<Transform>().parent.GetComponent<PistolBullet>().CollisionDetected(collision);
-    }
+    }*/
 }

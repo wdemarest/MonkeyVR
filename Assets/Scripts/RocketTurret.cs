@@ -5,11 +5,20 @@ using UnityEngine;
 public class RocketTurret : MonoBehaviour
 {
     GameObject Head;
+    public GameObject Rocket;
     public GameObject FireBurst;
-    Vector3 target;
+    Vector3 playerPos;
+    Vector3 playerPosAngle;
+    Vector3? AimTarget;
     float fireDelay = 3f;
-    float fireDelayRemaining = 0;
+    public float fireDelayRemaining = 0;
     float range = 25f;
+    public bool active = true;
+    bool LockedOn;
+
+    public AudioSource awaken;
+    public AudioSource lockOn;
+    public AudioSource fire;
 
     float placeWidth = 150;
     float placeTop = 175;
@@ -24,37 +33,66 @@ public class RocketTurret : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Vector3 targetAngle = TargetAngle();
-        target = Head.GetComponent<Transform>().position;
 
-        bool playerInSight = !Physics.Raycast(transform.position, targetAngle, targetAngle.magnitude, LayerMask.GetMask("GrabbableTerrain"));
+        playerPos = Head.GetComponent<Transform>().position;
+        playerPosAngle = TargetAngle(playerPos);
 
-        if (targetAngle.magnitude < range && playerInSight)
+        bool playerInSight = !Physics.Raycast(transform.position, playerPosAngle, playerPosAngle.magnitude, LayerMask.GetMask("GrabbableTerrain"));
+
+        if (playerPosAngle.magnitude < range)
         {
+            if (!active)
+            {
+                Debug.Log(active);
+                awaken.Play();
+                active = true;
+            }
+        }
+        else
+        {
+            active = false;
+        }
 
+
+        if (playerPosAngle.magnitude < range && playerInSight)
+        {
+            LockedOn = fireDelayRemaining <= 1;
+            if (!LockedOn)
+            {
+                AimTarget = playerPos;
+            }
 
             fireDelayRemaining -= Time.deltaTime;
-            if (fireDelayRemaining <= fireDelay - 0.1f)
+            GetComponent<Transform>().LookAt(new Vector3(AimTarget.Value.x, AimTarget.Value.y, AimTarget.Value.z));
+
+            if(fireDelayRemaining <= 1 && !LockedOn)
             {
+                lockOn.Play();
+                LockedOn = true;
             }
 
             if (fireDelayRemaining <= 0)
             {
-                Head.GetComponent<Head>().takeDamage(5);
+                GameObject rocket = Instantiate(Rocket, GetComponent<Transform>().position, Quaternion.Euler(0, 0, 0));
+                fire.Play();
+
+                rocket.GetComponent<Rocket>().target = (Vector3)AimTarget;
 
                 fireDelayRemaining = fireDelay;
+                AimTarget = null;
             }
         }
         else
         {
             fireDelayRemaining = fireDelay;
+            AimTarget = null;
         }
     }
 
-    Vector3 TargetAngle()
+    Vector3 TargetAngle(Vector3 targetPos)
     {
         Vector3 myPos = GetComponent<Transform>().position;
-        Vector3 targetPos = target;
+        
         return targetPos - myPos;
     }
 

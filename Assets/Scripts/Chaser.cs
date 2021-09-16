@@ -17,6 +17,10 @@ public class Chaser : MonoBehaviour
     float triggerDist = 5;
     bool activated = false;
 
+    public AudioSource chaserAwaken;
+    public AudioSource chaserMoving;
+    public AudioSource harvesterDie;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -35,7 +39,8 @@ public class Chaser : MonoBehaviour
         if (deltaToTarget.magnitude < activateRange && !activated)
         {
             activated = true;
-            FindObjectOfType<AudioManager>().Play("ChaserActivate");
+            chaserAwaken.Play();
+            chaserMoving.Play();
         }
 
         if (activated)
@@ -55,7 +60,7 @@ public class Chaser : MonoBehaviour
             if (Vector3.Distance(Target.transform.position, transform.position) < triggerDist)
             {
                 Target.GetComponent<Head>().takeDamage(5);
-                Destroy(gameObject);
+                Die();
             }
         }
     }
@@ -64,15 +69,19 @@ public class Chaser : MonoBehaviour
     {
         if (activated)
         {
-            FindObjectOfType<AudioManager>().Play("Hit");
             health -= 1;
 
             if (health <= 0)
             {
-                FindObjectOfType<AudioManager>().Play("ChaserDie");
-                Instantiate(Explosion, transform.position, transform.rotation);
-                Destroy(gameObject);
+                Die();
             }
         }
+    }
+
+    void Die()
+    {
+        harvesterDie.Play();
+        Instantiate(Explosion, transform.position, transform.rotation);
+        Destroy(gameObject);
     }
 }

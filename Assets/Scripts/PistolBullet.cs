@@ -12,6 +12,8 @@ public class PistolBullet : MonoBehaviour
     public float ageMax = 3;
     float age = 0;
 
+    public AudioSource land;
+    
     // Update is called once per frame
     void Update()
     {
@@ -57,7 +59,7 @@ public class PistolBullet : MonoBehaviour
 
     void explode()
     {
-        FindObjectOfType<AudioManager>().Play("BulletLand");
+        land.Play();
         Instantiate(Explosion, transform.position, transform.rotation);
         Destroy(gameObject);
     }

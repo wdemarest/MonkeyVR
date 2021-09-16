@@ -11,8 +11,10 @@ public class Rain : MonoBehaviour
     public float rainInterval = 10;
     public float rainDuration = 15;
     public bool isRaining;
-    public bool thundered = false;
+    public bool thundered = true;
     public float rainHeight = 50;
+
+    public AudioSource thunder;
 
     float damageTimer = 0;
     float damageInterval = 1;
@@ -37,7 +39,7 @@ public class Rain : MonoBehaviour
         if(rainTimer > rainInterval - 15 && !thundered)
         {
             thundered = true;
-            FindObjectOfType<AudioManager>().Play("Thunder");
+            thunder.Play();
         }
         
         if (rainTimer > rainInterval + rainDuration)
